@@ -1,6 +1,6 @@
 import logging
 
-from pipeline import PipelineTemplate
+from template import PipelineTemplate
 
 
 class ExamplePipeline(PipelineTemplate):
