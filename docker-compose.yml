@@ -1,8 +1,16 @@
 version: "3.8"
 services:
-  lineage:
-    build:
-      context: ./lineage
-      dockerfile: Dockerfile
-    ports:
-      - "5000:5000"
+  # lineage:
+  #   build:
+  #     context: ./lineage
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "5000:5000"
+  warehouse:
+    image: postgres:13-buster
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: warehouse
+    volumes:
+      - ./warehouse/init.sql:/docker-entrypoint-initdb.d/init.sql
