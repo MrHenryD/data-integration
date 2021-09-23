@@ -1,4 +1,23 @@
 version: "3.8"
+x-airflow-common:
+  &airflow-common
+  build:
+    &airflow-common-build
+    context: ./orchestrator
+    dockerfile: Dockerfile
+  environment:
+    &airflow-common-env
+    AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgres+psycopg2://airflow:airflow@meta-db:5432/airflow
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__LOGGING_LOGGING_LEVEL: DEBUG
+    AIRFLOW__LOGGING_BASE_LOG_FOLDER: /opt/airflow/logs
+  volumes:
+    - ./pipelines:/opt/airflow/dags
+  depends_on:
+    &airflow-common-depends-on
+    orchestrator-db:
+      condition: service_healthy
+
 services:
   # lineage:
   #   build:
@@ -6,11 +25,47 @@ services:
   #     dockerfile: Dockerfile
   #   ports:
   #     - "5000:5000"
-  warehouse:
+  
+  # warehouse:
+  #   image: postgres:13-buster
+  #   environment:
+  #     POSTGRES_USER: postgres
+  #     POSTGRES_PASSWORD: postgres
+  #     POSTGRES_DB: warehouse
+  #   volumes:
+  #     - ./warehouse/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  orchestrator-db:
     image: postgres:13-buster
+    hostname: meta-db
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: warehouse
-    volumes:
-      - ./warehouse/init.sql:/docker-entrypoint-initdb.d/init.sql
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 5s
+      retries: 5
+    restart: always
+
+  orchestrator-webserver:
+    <<: *airflow-common
+    build:
+      <<: *airflow-common-build        
+    depends_on:
+      <<: *airflow-common-depends-on
+    environment:
+      <<: *airflow-common-env    
+    command: >
+      bash -c "airflow db init 
+      && airflow users create --role Admin --username admin --email admin --firstname admin --lastname admin --password admin 
+      && (airflow scheduler &) 
+      && airflow webserver"
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "[ -f /usr/local/airflow/airflow-webserver.pod ]"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+    restart: always

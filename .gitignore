@@ -7,3 +7,6 @@ env/
 # Static
 data/
 temp/
+
+# Cache
+__pycache__
